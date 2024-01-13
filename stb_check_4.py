@@ -90,12 +90,9 @@ if selected_pre == "東京都":
 
     if selected_tokyo == "23区外":
         for tokyo in df_tokyo["23区"].values.tolist():
-            print(tokyo)
             if not tokyo == "23区外":
                 if not tokyo == "全て":
-
                     df_store = copy.copy(df_store[~df_store['住所'].str.contains(tokyo)])
-                    print(df_store['住所'].str.contains(tokyo))
 
     elif not selected_tokyo == "全て":
         # 23区で絞る
@@ -127,7 +124,7 @@ list_store = ds_store.to_list()
 
 # 地図の中心の緯度/経度、タイル、初期のズームサイズを指定します。
 
-
+st.write(zoom_set)
 
 m = folium.Map(
     # 地図の中心位置の指定(選択された都道府県の中心）
