@@ -4,6 +4,7 @@ import folium  # folium
 import pandas as pd  # CSVをデータフレームとして読み込む
 import sqlite3
 import os
+import copy
 
 DATA_FILE_DIR_STB = os.path.dirname(__file__) + '/スタバ店舗.csv'
 DATA_FILE_DIR_PRE = os.path.dirname(__file__) + '/都道府県.csv'
@@ -79,20 +80,43 @@ df = pd.read_csv(DATA_FILE_DIR_STB, encoding="shift-jis")
 df_pre = pd.read_csv(DATA_FILE_DIR_PRE, encoding="shift-jis")
 selected_pre = st.sidebar.selectbox("都道府県を選択してください", df_pre["都道府県"].values.tolist())
 
-
-
 # 都道府県で絞る
 df_store = df[df['住所'].str.contains(selected_pre)]
 
 if selected_pre == "東京都":
+    # 東京
     df_tokyo = pd.read_csv(DATA_FILE_DIR_TOKYO, encoding="shift-jis")
     selected_tokyo = st.sidebar.selectbox("区を選択してください", df_tokyo["23区"].values.tolist())
+
     if selected_tokyo == "23区外":
         for tokyo in df_tokyo["23区"].values.tolist():
-            df_store = df_store[~df_store['住所'].str.contains(tokyo)]
-    else:
+            print(tokyo)
+            if not tokyo == "23区外":
+                if not tokyo == "全て":
+
+                    df_store = copy.copy(df_store[~df_store['住所'].str.contains(tokyo)])
+                    print(df_store['住所'].str.contains(tokyo))
+
+    elif not selected_tokyo == "全て":
         # 23区で絞る
         df_store = df_store[df_store['住所'].str.contains(selected_tokyo)]
+
+    # 緯度、経度
+    ido = df_tokyo[df_tokyo["23区"] == selected_tokyo]["緯度"].values[0]
+    keido = df_tokyo[df_tokyo["23区"] == selected_tokyo]["経度"].values[0]
+    # 拡大率
+    df_zoom = df_tokyo[df_tokyo["23区"].str.contains(selected_tokyo)]
+    zoom_set = df_tokyo["拡大率"].values.tolist()[0]
+
+
+else:
+    # 東京以外
+    #緯度、経度
+    ido = df_pre[df_pre["都道府県"] == selected_pre]["緯度"].values[0]
+    keido = df_pre[df_pre["都道府県"] == selected_pre]["経度"].values[0]
+    # 拡大率
+    df_zoom = df_pre[df_pre["都道府県"].str.contains(selected_pre)]
+    zoom_set = df_zoom["拡大率"].values.tolist()[0]
 
 
 ds_store = df_store["店舗名"]
@@ -102,15 +126,17 @@ ds_store = df_store["店舗名"]
 list_store = ds_store.to_list()
 
 # 地図の中心の緯度/経度、タイル、初期のズームサイズを指定します。
+
+
+
 m = folium.Map(
     # 地図の中心位置の指定(選択された都道府県の中心）
-    location=[df_pre[df_pre["都道府県"] == selected_pre]["緯度"].values[0],
-              df_pre[df_pre["都道府県"] == selected_pre]["経度"].values[0]],
+    location=[ido, keido],
     # タイル、アトリビュートの指定
     tiles='https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
     attr='スターバックス店舗 2024/01/01',
     # ズームを指定
-    zoom_start=8
+    zoom_start=zoom_set
 )
 if st.checkbox("表示"):
     popup_spot(m, df_store)
