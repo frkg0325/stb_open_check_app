@@ -94,7 +94,7 @@ if selected_pre == "東京都":
         # 23区で絞る
         df_store = df_store[df_store['住所'].str.contains(selected_tokyo)]
 
-
+st.write(df_store)
 
 ds_store = df_store["店舗名"]
 
@@ -111,7 +111,7 @@ m = folium.Map(
     tiles='https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
     attr='スターバックス店舗 2024/01/01',
     # ズームを指定
-    zoom_start=9
+    zoom_start=8
 )
 if st.checkbox("表示"):
     popup_spot(m, df_store)
