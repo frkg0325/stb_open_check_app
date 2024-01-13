@@ -94,7 +94,6 @@ if selected_pre == "東京都":
         # 23区で絞る
         df_store = df_store[df_store['住所'].str.contains(selected_tokyo)]
 
-st.write(df_store)
 
 ds_store = df_store["店舗名"]
 
