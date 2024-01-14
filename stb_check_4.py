@@ -15,7 +15,7 @@ table_name = "CheckTable"
 index_name = "store"
 
 MAP_WIDTH = 1200 * 1/3
-MAP_HEIGHT = 800 * 3/4
+MAP_HEIGHT = 800 * 5/8
 
 def get_check(store):
     # 1.データベースに接続
