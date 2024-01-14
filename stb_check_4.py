@@ -109,12 +109,10 @@ if selected_pre == "東京都":
 else:
     # 東京以外
     #緯度、経度
-    st.write(selected_pre)
     ido = df_pre[df_pre["都道府県"] == selected_pre]["緯度"].values[0]
     keido = df_pre[df_pre["都道府県"] == selected_pre]["経度"].values[0]
     # 拡大率
     df_zoom = df_pre[df_pre["都道府県"].str.contains(selected_pre)]
-    st.write(df_zoom)
     zoom_set = df_zoom["拡大率"].values.tolist()[0]
 
 
@@ -125,9 +123,6 @@ ds_store = df_store["店舗名"]
 list_store = ds_store.to_list()
 
 # 地図の中心の緯度/経度、タイル、初期のズームサイズを指定します。
-
-st.write(zoom_set)
-
 m = folium.Map(
     # 地図の中心位置の指定(選択された都道府県の中心）
     location=[ido, keido],
