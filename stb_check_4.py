@@ -14,6 +14,9 @@ output_csv = os.path.dirname(__file__) + '/check.csv'
 table_name = "CheckTable"
 index_name = "store"
 
+MAP_WIDTH = 1200 * 1/3
+MAP_HEIGHT = 800 * 3/4
+
 def get_check(store):
     # 1.データベースに接続
     conn = sqlite3.connect(db_path)
@@ -149,7 +152,7 @@ for store in list_store:
         update_check(0, store)
         df.to_csv(DATA_FILE_DIR_STB, encoding="shift-jis", index=False)
 
-st_data = st_folium(m, width=1200, height=800)
+st_data = st_folium(m, width=MAP_WIDTH, height=MAP_HEIGHT)
 
 # 1.データベースに接続
 conn = sqlite3.connect(db_path)
