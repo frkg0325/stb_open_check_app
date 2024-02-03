@@ -141,6 +141,8 @@ def make_table():
         df_db.to_sql(table_name_conf, con=conn)  # SQLiteにCSVをインポート
     conn.close()
 
+make_table()
+
 # ページ設定
 st.set_page_config(
     page_title="streamlit-foliumテスト",
@@ -148,8 +150,7 @@ st.set_page_config(
     layout="wide"
 )
 
-if st.sidebar.button("テーブル追加"):
-    make_table()
+
 
 # 表示するデータを読み込み
 df = pd.read_csv(DATA_FILE_DIR_STB, encoding="shift-jis")
