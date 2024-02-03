@@ -123,6 +123,25 @@ def selected_target_to_index(target_csv, selected_target ):
     # index番号を変更
     return index_list.index(selected_target)
 
+def make_table():
+    try:
+        conn = sqlite3.connect(db_path)
+        sql = "DROP TABLE " + table_name_conf
+        conn.execute(sql)  # sql文を実行
+    except:
+        print("miss")
+    df_index = [conf_pre, conf_tokyo]
+    df_data = ["東京都",
+               "未選択"]
+    df_col = [index_name_conf]
+    df_db = pd.DataFrame(data=df_data, index= df_index, columns=df_col)
+    df_db[index_name_target] = df_db.index
+    df_db = df_db.set_index(index_name_target)
+    with sqlite3.connect(db_path) as conn:
+        df_db.to_sql(table_name_conf, con=conn)  # SQLiteにCSVをインポート
+    conn.close()
+
+make_table()
 
 # ページ設定
 st.set_page_config(
@@ -130,6 +149,8 @@ st.set_page_config(
     page_icon="🗾",
     layout="wide"
 )
+
+
 
 # 表示するデータを読み込み
 df = pd.read_csv(DATA_FILE_DIR_STB, encoding="shift-jis")
