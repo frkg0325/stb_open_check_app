@@ -144,6 +144,18 @@ def selected_target_to_index(target_csv, selected_target ):
 # make_table()
 
 
+
+
+
+
+# ページ設定
+st.set_page_config(
+    page_title="streamlit-foliumテスト",
+    page_icon="🗾",
+    layout="wide"
+)
+
+
 # データベースに接続
 conn = sqlite3.connect(db_path)
 # カーソルを作成
@@ -160,17 +172,6 @@ for table in tables:
     st.write(table[0])
 # 接続を閉じる
 conn.close()
-
-
-
-# ページ設定
-st.set_page_config(
-    page_title="streamlit-foliumテスト",
-    page_icon="🗾",
-    layout="wide"
-)
-
-
 
 # 表示するデータを読み込み
 df = pd.read_csv(DATA_FILE_DIR_STB, encoding="shift-jis")
