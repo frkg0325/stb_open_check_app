@@ -53,10 +53,9 @@ def get_conf(conf_target):
     # 2.sqliteを操作するカーソルオブジェクトを作成
     cur = conn.cursor()
     sql = "SELECT * FROM " + table_name_conf
+    df = pd.read_sql(sql, con=conn)
 
     try:
-        df = pd.read_sql(sql, con=conn)
-        print(df)
         sql = "SELECT * FROM " + table_name_conf + " WHERE target = '" + conf_target + "'";""
         cur.execute(sql)
         res = cur.fetchone()
@@ -124,25 +123,44 @@ def selected_target_to_index(target_csv, selected_target ):
     # index番号を変更
     return index_list.index(selected_target)
 
-def make_table():
-    try:
-        conn = sqlite3.connect(db_path)
-        sql = "DROP TABLE " + table_name_conf
-        conn.execute(sql)  # sql文を実行
-    except:
-        print("miss")
-    df_index = [conf_pre, conf_tokyo]
-    df_data = ["東京都",
-               "未選択"]
-    df_col = [index_name_conf]
-    df_db = pd.DataFrame(data=df_data, index= df_index, columns=df_col)
-    df_db[index_name_target] = df_db.index
-    df_db = df_db.set_index(index_name_target)
-    with sqlite3.connect(db_path) as conn:
-        df_db.to_sql(table_name_conf, con=conn)  # SQLiteにCSVをインポート
-    conn.close()
+# def make_table():
+#     try:
+#         conn = sqlite3.connect(db_path)
+#         sql = "DROP TABLE " + table_name_conf
+#         conn.execute(sql)  # sql文を実行
+#     except:
+#         print("miss")
+#     df_index = [conf_pre, conf_tokyo]
+#     df_data = ["東京都",
+#                "未選択"]
+#     df_col = [index_name_conf]
+#     df_db = pd.DataFrame(data=df_data, index= df_index, columns=df_col)
+#     df_db[index_name_target] = df_db.index
+#     df_db = df_db.set_index(index_name_target)
+#     with sqlite3.connect(db_path) as conn:
+#         df_db.to_sql(table_name_conf, con=conn)  # SQLiteにCSVをインポート
+#     conn.close()
+#
+# make_table()
 
-make_table()
+
+# データベースに接続
+conn = sqlite3.connect(db_path)
+# カーソルを作成
+cursor = conn.cursor()
+# テーブルの一覧を取得するSQLクエリ
+table_list_query = "SELECT name FROM sqlite_master WHERE type='table';"
+# SQLクエリを実行
+cursor.execute(table_list_query)
+# 結果を取得
+tables = cursor.fetchall()
+# テーブルの一覧を表示
+for table in tables:
+    st.write(table[0])
+# 接続を閉じる
+conn.close()
+
+
 
 # ページ設定
 st.set_page_config(
