@@ -53,9 +53,10 @@ def get_conf(conf_target):
     # 2.sqliteを操作するカーソルオブジェクトを作成
     cur = conn.cursor()
     sql = "SELECT * FROM " + table_name_conf
-    df = pd.read_sql(sql,con=conn)
-    print(df)
+
     try:
+        df = pd.read_sql(sql, con=conn)
+        print(df)
         sql = "SELECT * FROM " + table_name_conf + " WHERE target = '" + conf_target + "'";""
         cur.execute(sql)
         res = cur.fetchone()
