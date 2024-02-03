@@ -6,16 +6,29 @@ import sqlite3
 import os
 import copy
 
+# CSVデータ
 DATA_FILE_DIR_STB = os.path.dirname(__file__) + '/スタバ店舗.csv'
 DATA_FILE_DIR_PRE = os.path.dirname(__file__) + '/都道府県.csv'
 DATA_FILE_DIR_TOKYO = os.path.dirname(__file__) + '/東京23区.csv'
-db_path = os.path.dirname(__file__) + '/check.db'
 output_csv = os.path.dirname(__file__) + '/check.csv'
+
+# データベース
+db_path = os.path.dirname(__file__) + '/check.db'
+# 店舗テーブル
 table_name = "CheckTable"
+index_name_check = "check"
 index_name = "store"
+# 設定テーブル
+table_name_conf = "ConfTable"
+index_name_conf = "conf"
+index_name_target = "target"
+conf_pre = "prefectures"
+conf_tokyo = "tokyo"
+
 
 MAP_WIDTH = 1200 * 1/3
 MAP_HEIGHT = 800 * 5/8
+
 
 def get_check(store):
     # 1.データベースに接続
@@ -34,6 +47,25 @@ def get_check(store):
     conn.close()
     return res[1]
 
+def get_conf(conf_target):
+    # 1.データベースに接続
+    conn = sqlite3.connect(db_path)
+    # 2.sqliteを操作するカーソルオブジェクトを作成
+    cur = conn.cursor()
+    sql = "SELECT * FROM " + table_name_conf
+    df = pd.read_sql(sql,con=conn)
+    print(df)
+    try:
+        sql = "SELECT * FROM " + table_name_conf + " WHERE target = '" + conf_target + "'";""
+        cur.execute(sql)
+        res = cur.fetchone()
+    except sqlite3.Error as e:
+        print("失敗")
+        print(e)
+    conn.commit()
+    conn.close()
+    return res[1]
+
 def update_check(check, store):
     # 1.データベースに接続
     conn = sqlite3.connect(db_path)
@@ -42,6 +74,21 @@ def update_check(check, store):
     # 3
     try:
         sql = "UPDATE " + table_name + " SET 'check' = '" + str(check) + "' WHERE store = '" + store + "';"
+        cur.execute(sql)
+    except sqlite3.Error as e:
+        print("失敗")
+    conn.commit()
+    conn.close()
+
+def update_conf(conf, target):
+    # 1.データベースに接続
+    conn = sqlite3.connect(db_path)
+    # 2.sqliteを操作するカーソルオブジェクトを作成
+    cur = conn.cursor()
+    # 3
+    try:
+        sql = "UPDATE " + table_name_conf + " SET conf = '" +  conf + "'  WHERE target ='" + target + "'";""
+        print(sql)
         cur.execute(sql)
     except sqlite3.Error as e:
         print("失敗")
@@ -68,7 +115,31 @@ def popup_spot(m, df):
             icon=folium.Icon(icon="home", icon_color="white", color=icon_color)
         ).add_to(m)
 
+def selected_target_to_index(target_csv, selected_target ):
+    # データフレーム取得
+    df = pd.read_csv(target_csv, dtype=object, encoding="shift-jis", index_col=0)  # CSV 読込
+    # リストに変換
+    index_list = df.index.to_list()
+    # index番号を変更
+    return index_list.index(selected_target)
 
+def make_table():
+    try:
+        conn = sqlite3.connect(db_path)
+        sql = "DROP TABLE " + table_name_conf
+        conn.execute(sql)  # sql文を実行
+    except:
+        print("miss")
+    df_index = [conf_pre, conf_tokyo]
+    df_data = ["東京都",
+               "未選択"]
+    df_col = [index_name_conf]
+    df_db = pd.DataFrame(data=df_data, index= df_index, columns=df_col)
+    df_db[index_name_target] = df_db.index
+    df_db = df_db.set_index(index_name_target)
+    with sqlite3.connect(db_path) as conn:
+        df_db.to_sql(table_name_conf, con=conn)  # SQLiteにCSVをインポート
+    conn.close()
 
 # ページ設定
 st.set_page_config(
@@ -77,11 +148,19 @@ st.set_page_config(
     layout="wide"
 )
 
+if st.sidebar.button("テーブル追加"):
+    make_table()
+
 # 表示するデータを読み込み
 df = pd.read_csv(DATA_FILE_DIR_STB, encoding="shift-jis")
 # 都道府県の読み込み
 df_pre = pd.read_csv(DATA_FILE_DIR_PRE, encoding="shift-jis")
-selected_pre = st.sidebar.selectbox("都道府県を選択してください", df_pre["都道府県"].values.tolist())
+
+# 選択されている都道府県の番号を取得
+index_pre_no = selected_target_to_index(DATA_FILE_DIR_PRE,get_conf(conf_pre))
+selected_pre = st.sidebar.selectbox("都道府県を選択してください", df_pre["都道府県"].values.tolist(),index=index_pre_no)
+# 選択されているもので更新
+update_conf(selected_pre,conf_pre)
 
 # 都道府県で絞る
 df_store = df[df['住所'].str.contains(selected_pre)]
@@ -89,17 +168,26 @@ df_store = df[df['住所'].str.contains(selected_pre)]
 if selected_pre == "東京都":
     # 東京
     df_tokyo = pd.read_csv(DATA_FILE_DIR_TOKYO, encoding="shift-jis")
+    # 選択されている区の番号を取得
+    index_tokyo_no = selected_target_to_index(DATA_FILE_DIR_TOKYO, get_conf(conf_tokyo))
     selected_tokyo = st.sidebar.selectbox("区を選択してください", df_tokyo["23区"].values.tolist())
+    # 選択されているもので更新
+    update_conf(selected_tokyo, conf_tokyo)
 
     if selected_tokyo == "23区外":
         for tokyo in df_tokyo["23区"].values.tolist():
             if not tokyo == "23区外":
                 if not tokyo == "全て":
                     df_store = copy.copy(df_store[~df_store['住所'].str.contains(tokyo)])
+    elif selected_tokyo == "未選択":
+        print(df_store)
+        # df_store = df_store.drop(range(len(df_store)))
+        df_store =  pd.DataFrame(columns=df_store.columns)
+        print(df_store)
 
     elif not selected_tokyo == "全て":
-        # 23区で絞る
-        df_store = df_store[df_store['住所'].str.contains(selected_tokyo)]
+            # 23区で絞る
+            df_store = df_store[df_store['住所'].str.contains(selected_tokyo)]
 
     # 緯度、経度
     ido = df_tokyo[df_tokyo["23区"] == selected_tokyo]["緯度"].values[0]
@@ -167,3 +255,5 @@ st.download_button(
 )
 
 
+# except:
+#     st.button("再読み込み")
