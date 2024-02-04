@@ -149,7 +149,7 @@ if selected_pre == "東京都":
     df_tokyo = pd.read_csv(DATA_FILE_DIR_TOKYO, encoding="shift-jis")
     # 選択されている区の番号を取得
     index_tokyo_no = selected_target_to_index(DATA_FILE_DIR_TOKYO, get_conf(conf_tokyo))
-    selected_tokyo = st.sidebar.selectbox("区を選択してください", df_tokyo["23区"].values.tolist())
+    selected_tokyo = st.sidebar.selectbox("区を選択してください", df_tokyo["23区"].values.tolist(),index=index_tokyo_no)
     # 選択されているもので更新
     update_conf(selected_tokyo, conf_tokyo)
 
