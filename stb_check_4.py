@@ -123,20 +123,20 @@ def selected_target_to_index(target_csv, selected_target ):
     # index番号を変更
     return index_list.index(selected_target)
 
-# def make_table():
-#     df_index = [conf_pre, conf_tokyo]
-#     df_data = ["東京都",
-#                "未選択"]
-#     df_col = [index_name_conf]
-#     df_db = pd.DataFrame(data=df_data, index= df_index, columns=df_col)
-#     df_db[index_name_target] = df_db.index
-#     df_db = df_db.set_index(index_name_target)
-#
-#     try:
-#         with sqlite3.connect(db_path) as conn:
-#             df_db.to_sql(table_name_conf, con=conn,if_exists="fail")  # SQLiteにCSVをインポート
-#     except:
-#         st.write("失敗")
+def make_table():
+    df_index = [conf_pre, conf_tokyo]
+    df_data = ["東京都",
+               "未選択"]
+    df_col = [index_name_conf]
+    df_db = pd.DataFrame(data=df_data, index= df_index, columns=df_col)
+    df_db[index_name_target] = df_db.index
+    df_db = df_db.set_index(index_name_target)
+
+    try:
+        with sqlite3.connect(db_path) as conn:
+            df_db.to_sql(table_name_conf, con=conn,if_exists="fail")  # SQLiteにCSVをインポート
+    except:
+        st.write("失敗")
 
 
 
@@ -153,7 +153,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# make_table()
+make_table()
 
 # データベースに接続
 conn = sqlite3.connect(db_path)
