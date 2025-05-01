@@ -133,7 +133,7 @@ if __name__ == "__main__":
         ).add_to(m)
 
     # --- マップを表示 ---
-    map_data = st_folium(m, width=700, height=500)
+    map_data = st_folium(m, width=600, height=700)
 
     if st.button("店舗情報更新"):
         update_store_pin(map_data)
