@@ -128,7 +128,7 @@ if __name__ == "__main__":
         folium.Marker(
             location=[search_result.latitude, search_result.longitude],
             popup="検索地点",
-            icon=folium.Icon(color="red")
+            icon=folium.Icon(color="green")
         ).add_to(m)
 
     # --- マップを表示 ---
