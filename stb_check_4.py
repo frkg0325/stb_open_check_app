@@ -60,7 +60,7 @@ def update_store_pin(map_data):
                 st.session_state.zoom_level = map_data["zoom"]
 
             store_df = db.get_stores_in_area(lat_min, lat_max, lon_min, lon_max)
-            # st.write(store_df)
+            st.write(store_df)
 
             st.session_state.store_pins = []
             for idx, row in store_df.iterrows():
@@ -133,9 +133,9 @@ if __name__ == "__main__":
         ).add_to(m)
 
     # --- マップを表示 ---
-    map_data = st_folium(m, width=600, height=700)
+    map_data = st_folium(m, width=700, height=500)
 
-    if st.button("店舗情報更新"):
+    if st.sidebar.button("店舗情報更新"):
         update_store_pin(map_data)
         st.write(st.session_state.store_pins)
         st.rerun()

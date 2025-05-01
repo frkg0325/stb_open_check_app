@@ -10,7 +10,7 @@ def get_stores_in_area(lat_min, lat_max, lon_min, lon_max):
     conn = sqlite3.connect(db_path,check_same_thread=False)
 
     query = f"""
-    SELECT 店舗名, 緯度, 経度 ,訪問済,閉店済
+    SELECT 店舗名, 緯度, 経度 ,訪問済, 閉店済
     FROM {table_name}
     WHERE 緯度 BETWEEN ? AND ?
       AND 経度 BETWEEN ? AND ?;
