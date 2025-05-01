@@ -135,7 +135,7 @@ if __name__ == "__main__":
     # --- マップを表示 ---
     map_data = st_folium(m, width=700, height=500)
 
-    if st.sidebar.button("店舗情報更新"):
+    if st.button("店舗情報更新"):
         update_store_pin(map_data)
         st.write(st.session_state.store_pins)
         st.rerun()
