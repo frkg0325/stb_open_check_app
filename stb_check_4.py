@@ -1,238 +1,169 @@
-import streamlit as st  # streamlit
-from streamlit_folium import st_folium  # streamlitでfoliumを使う
-import folium  # folium
-import pandas as pd  # CSVをデータフレームとして読み込む
-import sqlite3
-import os
-import copy
+import streamlit as st
+import pandas as pd
+from streamlit_js_eval import get_geolocation
+from geopy.geocoders import Nominatim
+from streamlit_folium import st_folium
+import folium
+import io
 
-# CSVデータ
-DATA_FILE_DIR_STB = os.path.dirname(__file__) + '/スタバ店舗.csv'
-DATA_FILE_DIR_PRE = os.path.dirname(__file__) + '/都道府県.csv'
-DATA_FILE_DIR_TOKYO = os.path.dirname(__file__) + '/東京23区.csv'
-output_csv = os.path.dirname(__file__) + '/check.csv'
+import db
 
-# データベース
-db_path = os.path.dirname(__file__) + '/check.db'
-# 店舗テーブル
-table_name = "CheckTable"
-index_name_check = "check"
-index_name = "store"
-# 設定テーブル
-table_name_conf = "ConfTable"
-index_name_conf = "conf"
-index_name_target = "target"
-conf_pre = "prefectures"
-conf_tokyo = "tokyo"
+st.title("現在位置と検索地点をマップに表示")
+
+def st_init():
+    if "store_pins" not in st.session_state:
+        st.session_state.store_pins = []
+    if "lat_min" not in st.session_state:
+        st.session_state.lat_min = 0
+    if "lat_max" not in st.session_state:
+        st.session_state.lat_max = 0
+    if "lon_min" not in st.session_state:
+        st.session_state.lon_min = 0
+    if "lon_max" not in st.session_state:
+        st.session_state.lon_max = 0
+    if "center_lat" not in st.session_state:
+        st.session_state.center_lat = 35.681236  # 東京駅
+    if "center_lon" not in st.session_state:
+        st.session_state.center_lon = 139.767125
+    if "zoom_level" not in st.session_state:
+        st.session_state.zoom_level = 15
+
+def get_color(row):
+    if row["閉店済"] == 1 or row["閉店済"] == "1":
+        return "grey"
+    elif row["訪問済"] == 1 or row["訪問済"] == "1":
+        return "blue"
+    else:
+        return "red"
+
+def update_store_pin(map_data):
+    if map_data and "bounds" in map_data:
+        bounds = map_data["bounds"]
+        if "_southWest" in bounds and "_northEast" in bounds:
+            # --- セッションに店舗ピンを保存 ---
+
+            lat_min = bounds["_southWest"]["lat"]
+            lat_max = bounds["_northEast"]["lat"]
+            lon_min = bounds["_southWest"]["lng"]
+            lon_max = bounds["_northEast"]["lng"]
+
+            st.session_state.lat_min = lat_min
+            st.session_state.lat_max = lat_max
+            st.session_state.lon_min = lon_min
+            st.session_state.lon_max = lon_max
+            # センターとズームを保存
+            if "center" in map_data:
+                st.session_state.center_lat = map_data["center"]["lat"]
+                st.session_state.center_lon = map_data["center"]["lng"]
+
+            if "zoom" in map_data:
+                st.session_state.zoom_level = map_data["zoom"]
+
+            store_df = db.get_stores_in_area(lat_min, lat_max, lon_min, lon_max)
+            # st.write(store_df)
+
+            st.session_state.store_pins = []
+            for idx, row in store_df.iterrows():
+                pin_info = {
+                    "lat": row["緯度"],
+                    "lon": row["経度"],
+                    "name": row["店舗名"],
+                    "color": get_color(row)
+                }
+                st.session_state.store_pins.append(pin_info)
 
 
-MAP_WIDTH = 1200 * 1/3
-MAP_HEIGHT = 800 * 5/8
+if __name__ == "__main__":
+    # ①イニシャル処理
+    st_init()
 
+    # --- 現在位置取得 ---
+    location = get_geolocation()
 
-def get_check(store):
-    # 1.データベースに接続
-    conn = sqlite3.connect(db_path)
-    # 2.sqliteを操作するカーソルオブジェクトを作成
-    cur = conn.cursor()
-    # 3
-    try:
-        sql = "SELECT * FROM " + table_name + " WHERE store = '" + store + "';"
-        cur.execute(sql)
-        res = cur.fetchone()
-    except sqlite3.Error as e:
-        print("失敗")
-        print(e)
-    conn.commit()
-    conn.close()
-    return res[1]
+    # --- 検索ボックス ---
+    search_query = st.text_input("場所を検索", "")
+    search_result = None
+    geolocator = Nominatim(user_agent="streamlit_app")
 
-def get_conf(conf_target):
-    # 1.データベースに接続
-    conn = sqlite3.connect(db_path)
-    # 2.sqliteを操作するカーソルオブジェクトを作成
-    cur = conn.cursor()
-    sql = "SELECT * FROM " + table_name_conf
-    df = pd.read_sql(sql, con=conn)
+    if search_query:
+        try:
+            search_result = geolocator.geocode(search_query)
+            if search_result:
+                st.success(
+                    f"検索結果: {search_result.address}（緯度 {search_result.latitude:.6f}, 経度 {search_result.longitude:.6f}）")
+            else:
+                st.warning("該当する場所が見つかりませんでした。")
+        except Exception as e:
+            st.error(f"検索中にエラーが発生しました: {e}")
 
-    try:
-        sql = "SELECT * FROM " + table_name_conf + " WHERE target = '" + conf_target + "'";""
-        cur.execute(sql)
-        res = cur.fetchone()
-    except sqlite3.Error as e:
-        print("失敗")
-        print(e)
-    conn.commit()
-    conn.close()
-    return res[1]
+    # --- マップ作成 ---
+    if search_result:
+        st.session_state.center_lat = search_result.latitude
+        st.session_state.center_lon = search_result.longitude
+    elif location:
+        st.session_state.center_lat = location['coords']['latitude']
+        st.session_state.center_lon = location['coords']['longitude']
 
-def update_check(check, store):
-    # 1.データベースに接続
-    conn = sqlite3.connect(db_path)
-    # 2.sqliteを操作するカーソルオブジェクトを作成
-    cur = conn.cursor()
-    # 3
-    try:
-        sql = "UPDATE " + table_name + " SET 'check' = '" + str(check) + "' WHERE store = '" + store + "';"
-        cur.execute(sql)
-    except sqlite3.Error as e:
-        print("失敗")
-    conn.commit()
-    conn.close()
+    m = folium.Map(location=[st.session_state.center_lat, st.session_state.center_lon],
+                   zoom_start=st.session_state.zoom_level)
 
-def update_conf(conf, target):
-    # 1.データベースに接続
-    conn = sqlite3.connect(db_path)
-    # 2.sqliteを操作するカーソルオブジェクトを作成
-    cur = conn.cursor()
-    # 3
-    try:
-        sql = "UPDATE " + table_name_conf + " SET conf = '" +  conf + "'  WHERE target ='" + target + "'";""
-        print(sql)
-        cur.execute(sql)
-    except sqlite3.Error as e:
-        print("失敗")
-    conn.commit()
-    conn.close()
-
-def popup_spot(m, df):
-    # 読み込んだデータ(緯度・経度、ポップアップ用文字、アイコンを表示)
-    for i, row in df.iterrows():
-        # ポップアップの作成(都道府県名＋都道府県庁所在地＋人口＋面積)
-        pop = f"{row['店舗名']}<br>({row['住所']})"
-        if get_check(row['店舗名']) == 0:
-            icon_color = "red"
-        else:
-            icon_color = "blue"
+    # --- 既存ピンをマップに追加（store_pins）---
+    for pin in st.session_state.store_pins:
         folium.Marker(
-            # 緯度と経度を指定
-            location=[row['緯度'], row['経度']],
-            # ツールチップの指定(都道府県名)
-            tooltip=row['店舗名'],
-            # ポップアップの指定ana
-            popup=folium.Popup(pop, max_width=300),
-            # アイコンの指定(アイコン、色)
-            icon=folium.Icon(icon="home", icon_color="white", color=icon_color)
+            location=[pin["lat"], pin["lon"]],
+            popup=pin["name"],
+            icon=folium.Icon(color=pin["color"])
         ).add_to(m)
 
-def selected_target_to_index(target_csv, selected_target ):
-    # データフレーム取得
-    df = pd.read_csv(target_csv, dtype=object, encoding="shift-jis", index_col=0)  # CSV 読込
-    # リストに変換
-    index_list = df.index.to_list()
-    # index番号を変更
-    return index_list.index(selected_target)
 
-# ページ設定
-st.set_page_config(
-    page_title="streamlit-foliumテスト",
-    page_icon="🗾",
-    layout="wide"
-)
+    # --- 現在位置をマップに追加 ---
+    if location:
+        folium.Marker(
+            location=[location['coords']['latitude'], location['coords']['longitude']],
+            popup="現在地",
+            icon=folium.Icon(color="green")
+        ).add_to(m)
 
-# 表示するデータを読み込み
-df = pd.read_csv(DATA_FILE_DIR_STB, encoding="shift-jis")
-# 都道府県の読み込み
-df_pre = pd.read_csv(DATA_FILE_DIR_PRE, encoding="shift-jis")
+    # --- 検索地点をマップに追加 ---
+    if search_result:
+        folium.Marker(
+            location=[search_result.latitude, search_result.longitude],
+            popup="検索地点",
+            icon=folium.Icon(color="red")
+        ).add_to(m)
 
-# 選択されている都道府県の番号を取得
-index_pre_no = selected_target_to_index(DATA_FILE_DIR_PRE,get_conf(conf_pre))
-selected_pre = st.sidebar.selectbox("都道府県を選択してください", df_pre["都道府県"].values.tolist(),index=index_pre_no)
-# 選択されているもので更新
-update_conf(selected_pre,conf_pre)
+    # --- マップを表示 ---
+    map_data = st_folium(m, width=700, height=500)
 
-# 都道府県で絞る
-df_store = df[df['住所'].str.contains(selected_pre)]
+    if st.sidebar.button("店舗情報更新"):
+        update_store_pin(map_data)
+        st.write(st.session_state.store_pins)
+        st.rerun()
 
-if selected_pre == "東京都":
-    # 東京
-    df_tokyo = pd.read_csv(DATA_FILE_DIR_TOKYO, encoding="shift-jis")
-    # 選択されている区の番号を取得
-    index_tokyo_no = selected_target_to_index(DATA_FILE_DIR_TOKYO, get_conf(conf_tokyo))
-    selected_tokyo = st.sidebar.selectbox("区を選択してください", df_tokyo["23区"].values.tolist(),index=index_tokyo_no)
-    # 選択されているもので更新
-    update_conf(selected_tokyo, conf_tokyo)
+    # ファイルアップロードウィジェット（ドラッグアンドドロップ対応）
+    uploaded_file = st.sidebar.file_uploader("CSVファイルをアップロードしてください", type="csv")
 
-    if selected_tokyo == "23区外":
-        for tokyo in df_tokyo["23区"].values.tolist():
-            if not tokyo == "23区外":
-                if not tokyo == "全て":
-                    df_store = copy.copy(df_store[~df_store['住所'].str.contains(tokyo)])
-    elif selected_tokyo == "未選択":
-        print(df_store)
-        # df_store = df_store.drop(range(len(df_store)))
-        df_store =  pd.DataFrame(columns=df_store.columns)
-        print(df_store)
-
-    elif not selected_tokyo == "全て":
-            # 23区で絞る
-            df_store = df_store[df_store['住所'].str.contains(selected_tokyo)]
-
-    # 緯度、経度
-    ido = df_tokyo[df_tokyo["23区"] == selected_tokyo]["緯度"].values[0]
-    keido = df_tokyo[df_tokyo["23区"] == selected_tokyo]["経度"].values[0]
-    # 拡大率
-    df_zoom = df_tokyo[df_tokyo["23区"].str.contains(selected_tokyo)]
-    zoom_set = df_tokyo["拡大率"].values.tolist()[0]
+    # ファイルがアップロードされたら読み込む
+    if uploaded_file is not None:
+        try:
+            # pandasで読み込み（文字コードは自動判定またはshift_jisなど指定可）
+            df_csv = pd.read_csv(uploaded_file)
+            db.update_store_table_from_df(df_csv)
 
 
-else:
-    # 東京以外
-    #緯度、経度
-    ido = df_pre[df_pre["都道府県"] == selected_pre]["緯度"].values[0]
-    keido = df_pre[df_pre["都道府県"] == selected_pre]["経度"].values[0]
-    # 拡大率
-    df_zoom = df_pre[df_pre["都道府県"].str.contains(selected_pre)]
-    zoom_set = df_zoom["拡大率"].values.tolist()[0]
+        except Exception as e:
+            st.sidebar.error(f"読み込み中にエラーが発生しました: {e}")
 
 
-ds_store = df_store["店舗名"]
+    if st.sidebar.button("CSV取得"):
+        df_download =  db.get_table_to_df()
+        # CSV形式に変換（UTF-8 with BOMにするとExcelでも文字化けしにくい）
+        csv = df_download.to_csv(index=False, encoding='utf-8-sig')
+        csv_bytes = io.BytesIO(csv.encode('utf-8-sig'))
 
-# print(ds_store)
-
-list_store = ds_store.to_list()
-
-# 地図の中心の緯度/経度、タイル、初期のズームサイズを指定します。
-m = folium.Map(
-    # 地図の中心位置の指定(選択された都道府県の中心）
-    location=[ido, keido],
-    # タイル、アトリビュートの指定
-    tiles='https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
-    attr='スターバックス店舗 2024/01/01',
-    # ズームを指定
-    zoom_start=zoom_set
-)
-if st.checkbox("表示"):
-    popup_spot(m, df_store)
-
-for store in list_store:
-    index_no = df[df["店舗名"] == store].index.values[0]
-    if get_check(store) == 1:
-        check_init = True
-    else:
-        check_init = False
-
-    if st.sidebar.checkbox(store,value=check_init):
-        update_check(1, store)
-        df.to_csv(DATA_FILE_DIR_STB, encoding="shift-jis", index=False)
-    else:
-        update_check(0, store)
-        df.to_csv(DATA_FILE_DIR_STB, encoding="shift-jis", index=False)
-
-st_data = st_folium(m, width=MAP_WIDTH, height=MAP_HEIGHT)
-
-# 1.データベースに接続
-conn = sqlite3.connect(db_path)
-# 作成したテーブルをpandasで読み出す
-df_db = pd.read_sql("SELECT * FROM " + table_name, conn)
-
-st.download_button(
-    label="チェックした店舗のCSVデータ",
-    data=df_db.to_csv(index=False).encode("shift-jis"),
-    file_name=DATA_FILE_DIR_STB,  # ダウンロードするファイル名を指定
-    key='download-csv'
-)
-
-
-# except:
-#     st.button("再読み込み")
+        st.sidebar.download_button(
+            label="📥 CSVをダウンロード",
+            data=csv_bytes,
+            file_name="store.csv",
+            mime="text/csv"
+        )
